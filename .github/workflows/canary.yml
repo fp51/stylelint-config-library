@@ -7,10 +7,10 @@ on:
 jobs:
   publish-canary:
     name: 'publish canary'
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2-beta
+    - uses: actions/checkout@v2
 
     - name: Compute canary version
       id: compute-version
@@ -28,13 +28,13 @@ jobs:
         echo "::set-output name=version::$NEW_VERSION"
         echo "::set-output name=name::$NAME"
 
-    - uses: actions/setup-node@v1
+    - uses: actions/setup-node@v2
       with:
-        registry-url: https://registry.npmjs.org/
-        node-verion: '12.x'
+        node-version: '14'
+        registry-url: 'https://registry.npmjs.org'
 
     - name: Cache npm cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: ~/.npm
         key: v1-npm-${{ github.event.pull_request.head.ref }}-${{ hashFiles('package-lock.json') }}
@@ -48,19 +48,19 @@ jobs:
 
     - name: Bumb version
       env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        NODE_AUTH_TOKEN: ${{ secrets.TOKEN_NPM }}
         VERSION: ${{ steps.compute-version.outputs.version }}
       run: |
         npm version --no-git-tag-version $VERSION
 
     - name: Create deployment
       id: deployment
-      uses: actions/github-script@0.4.0
+      uses: actions/github-script@v3
       env:
         NAME: ${{ steps.compute-version.outputs.name }}
         VERSION: ${{ steps.compute-version.outputs.version }}
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN_REPO_WRITE }}
+        github-token: ${{ secrets.TOKEN_REPO_WRITE }}
         previews: 'ant-man-preview,flash-preview'
         script: |
           const name = process.env.NAME;
