@@ -1,6 +1,6 @@
 {
   "name": "@fp51/stylelint-config",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "fp51 stylelint rules",
   "main": "src/index.js",
   "scripts": {
