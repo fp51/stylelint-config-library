@@ -1,28 +1,31 @@
 {
-  "name": "@iadvize-oss/stylelint-config",
-  "version": "1.0.0",
-  "description": "iAdvize stylelint rules",
+  "name": "@fp51/stylelint-config",
+  "version": "0.0.0",
+  "description": "fp51 stylelint rules",
   "main": "src/index.js",
   "scripts": {
+    "docs": "echo no docs",
+    "build": "echo nothing to build",
+    "test:js": "echo nothing to test",
     "lint:js": "eslint src/*"
   },
-  "homepage": "https://github.com/iadvize/stylelint-config-library#readme",
+  "homepage": "https://github.com/fp51/stylelint-config-library#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/iadvize/stylelint-config-library.git"
+    "url": "git+https://github.com/fp51/stylelint-config-library.git"
   },
   "keywords": [
-    "iAdvize",
+    "fp51",
     "stylelint"
   ],
   "bugs": {
-    "url": "https://github.com/iadvize/stylelint-config-library/issues"
+    "url": "https://github.com/fp51/stylelint-config-library/issues"
   },
-  "author": "iAdvize developers",
+  "author": "fp51 developers",
   "license": "MIT",
   "private": false,
   "devDependencies": {
-    "@iadvize-oss/eslint-config": "^2.2.0",
+    "@fp51/eslint-config": "^1.0.0",
     "eslint": "^7.20.0"
   },
   "peerDependencies": {
