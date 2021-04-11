@@ -3,7 +3,7 @@ name: Merge pull requests once ready
 on:
   check_suite:
     types: [completed]
-  pull_request:
+  pull_request_target:
     types: [labeled]
   pull_request_review:
     types: [submitted]
@@ -39,6 +39,6 @@ jobs:
         # with the GITHUB_TOKEN
         # @see https://help.github.com/en/articles/events-that-trigger-workflows#event-restrictions
         token: ${{ secrets.TOKEN_REPO_WRITE }}
-        pullNumber: ${{ (github.event.pull_request && github.event.pull_request.number) || steps.pr.outputs.pullNumber }}
+        pullNumber: ${{ (github.event.pull_request_target && github.event.pull_request_target.number) || steps.pr.outputs.pullNumber }}
         label: 'Action: keep-rebased-then-merge'
 

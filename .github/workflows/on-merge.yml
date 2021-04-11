@@ -1,7 +1,7 @@
 name: On merge
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [closed]
 
@@ -10,7 +10,7 @@ jobs:
     name: 'generate docs and push'
     runs-on: ubuntu-latest
 
-    if: github.event.pull_request.merged == true
+    if: github.event.pull_request_target.merged == true
 
     steps:
     - uses: actions/checkout@v2
@@ -62,11 +62,11 @@ jobs:
     - generate-docs
 
     if: >
-      github.event.pull_request.merged == true && (
-        contains(github.event.pull_request.labels.*.name, 'Action: patch bump')
-      || contains(github.event.pull_request.labels.*.name, 'Action: minor bump')
-      || contains(github.event.pull_request.labels.*.name, 'Action: major bump')
-      || contains(github.event.pull_request.labels.*.name, 'Action: beta bump')
+      github.event.pull_request_target.merged == true && (
+        contains(github.event.pull_request_target.labels.*.name, 'Action: patch bump')
+      || contains(github.event.pull_request_target.labels.*.name, 'Action: minor bump')
+      || contains(github.event.pull_request_target.labels.*.name, 'Action: major bump')
+      || contains(github.event.pull_request_target.labels.*.name, 'Action: beta bump')
       )
 
     steps:
@@ -102,7 +102,7 @@ jobs:
 
           const versionLabelsNames = Object.keys(versionLabels);
 
-          const labels = context.payload.pull_request.labels;
+          const labels = context.payload.pull_request_target.labels;
 
           const versionLabelsPresent = labels
             .filter(label => versionLabelsNames.includes(label.name))
