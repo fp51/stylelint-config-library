@@ -8,4 +8,4 @@ updates:
       time: "02:00"
     labels:
       - "Action: no bump"
-      - "Action: keep-rebased-then-merge"
+      - "Action: keep-rebased"
