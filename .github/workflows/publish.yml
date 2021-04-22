@@ -1,0 +1,179 @@
+name: Publish package
+
+on:
+  workflow_run:
+    workflows: ["Continuous integration", "On merge"]
+    types:
+      - completed
+
+jobs:
+  publish-canary:
+    name: Publish
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Find artifact
+      id: find-artifact
+      uses: actions/github-script@v3.1.0
+      with:
+        script: |
+          const artifacts = await github.actions.listWorkflowRunArtifacts({
+             owner: context.repo.owner,
+             repo: context.repo.repo,
+             run_id: ${{ github.event.workflow_run.id }},
+          });
+
+          const matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+            return artifact.name == "package"
+          })[0];
+
+          if (!matchArtifact) {
+            console.log("::set-output name=found::false")
+          } else {
+            console.log("::set-output name=found::true")
+            console.log(`::set-output name=id::${matchArtifact.id}`)
+          }
+
+    - name: Download artifact
+      id: download-artifact
+      if: steps.find-artifact.outputs.found == 'true'
+      uses: actions/github-script@v3.1.0
+      with:
+        script: |
+          const artifacts = await github.actions.listWorkflowRunArtifacts({
+             owner: context.repo.owner,
+             repo: context.repo.repo,
+             run_id: ${{ github.event.workflow_run.id }},
+          });
+
+          const matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+            return artifact.name == "package"
+          })[0];
+
+          const download = await github.actions.downloadArtifact({
+             owner: context.repo.owner,
+             repo: context.repo.repo,
+             artifact_id: matchArtifact.id,
+             archive_format: 'zip',
+          });
+
+          console.log(`::set-output name=id::${matchArtifact.id}`)
+
+          const fs = require('fs');
+          fs.writeFileSync('${{github.workspace}}/package.zip', Buffer.from(download.data));
+
+    - name: Unzip artifact
+      if: steps.find-artifact.outputs.found == 'true'
+      run: |
+        unzip package.zip
+        tar -xzf package.tgz
+
+    - name: Extract metadata
+      id: compute-version
+      if: steps.find-artifact.outputs.found == 'true'
+      run: |
+        VERSION=$(cat package/package.json | jq -r '.version')
+        NAME=$(cat package/package.json | jq -r '.name')
+        REF=$(cat ref)
+        NPM_TAG=$(cat npm-tag)
+
+        echo "::set-output name=version::$VERSION"
+        echo "::set-output name=name::$NAME"
+        echo "::set-output name=ref::$REF"
+        echo "::set-output name=npmTag::$NPM_TAG"
+
+    - name: Create deployment
+      id: deployment
+      if: steps.find-artifact.outputs.found == 'true'
+      uses: actions/github-script@v3
+      env:
+        NAME: ${{ steps.compute-version.outputs.name }}
+        VERSION: ${{ steps.compute-version.outputs.version }}
+        REF: ${{ steps.compute-version.outputs.ref }}
+        ARTIFACT_ID: ${{ steps.download-artifact.outputs.id }}
+      with:
+        github-token: ${{ secrets.TOKEN_REPO_WRITE }}
+        previews: 'ant-man-preview,flash-preview'
+        script: |
+          const name = process.env.NAME;
+          const version = process.env.VERSION;
+          const ref = process.env.REF;
+
+          const { data: deployment } = await github.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref,
+            environment: 'npm',
+            auto_merge: false,
+            required_contexts: [],
+            description: `Publish ${name}@${version} on npm`,
+            production_environment: true,
+          });
+
+          console.log(`::set-output name=id::${deployment.id}`)
+
+    - name: Update deployment status
+      uses: actions/github-script@v3
+      env:
+        NAME: ${{ steps.compute-version.outputs.name }}
+        VERSION: ${{ steps.compute-version.outputs.version }}
+        DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+      with:
+        github-token: ${{ secrets.TOKEN_REPO_WRITE }}
+        previews: 'ant-man,flash'
+        script: |
+          const name = process.env.NAME;
+          const version = process.env.VERSION;
+          const npmUrl = `https://www.npmjs.com/package/${name}/v/${version}`;
+
+          const { data: deploymentStatus } = github.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: process.env.DEPLOYMENT_ID,
+            environment_url: npmUrl,
+            description: `Publishing ${name}@${version} on npm`,
+            auto_inactive: false,
+            state: 'in_progress',
+          });
+
+    - uses: actions/setup-node@v2
+      with:
+        registry-url: https://registry.npmjs.org/
+        node-version: '14'
+
+    - name: Publish npm
+      id: publish
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.TOKEN_NPM }}
+        NPM_TAG: ${{ steps.compute-version.outputs.npmTag }}
+      run: |
+        npm publish package.tgz --access public --tag $NPM_TAG
+
+        echo "::set-output name=state::done"
+
+    - name: Update deployment status
+      if: always()
+      uses: actions/github-script@v3
+      env:
+        NAME: ${{ steps.compute-version.outputs.name }}
+        VERSION: ${{ steps.compute-version.outputs.version }}
+        DEPLOYMENT_ID: ${{ steps.deployment.outputs.id }}
+      with:
+        github-token: ${{ secrets.TOKEN_REPO_WRITE }}
+        previews: 'ant-man,flash'
+        script: |
+          const name = process.env.NAME;
+          const version = process.env.VERSION;
+          const npmUrl = `https://www.npmjs.com/package/${name}/v/${version}`;
+
+          const state = '${{ steps.publish.outputs.state }}' === 'done' ? 'success' : 'failure';
+
+          const { data: deploymentStatus } = github.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: process.env.DEPLOYMENT_ID,
+            environment_url: npmUrl,
+            description: `Published ${name}@${version} on npm`,
+            auto_inactive: false,
+            state,
+          });

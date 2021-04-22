@@ -10,7 +10,7 @@ jobs:
     name: 'generate docs and push'
     runs-on: ubuntu-latest
 
-    if: github.event.pull_request_target.merged == true
+    if: github.event.pull_request.merged == true
 
     steps:
     - uses: actions/checkout@v2
@@ -62,11 +62,11 @@ jobs:
     - generate-docs
 
     if: >
-      github.event.pull_request_target.merged == true && (
-        contains(github.event.pull_request_target.labels.*.name, 'Action: patch bump')
-      || contains(github.event.pull_request_target.labels.*.name, 'Action: minor bump')
-      || contains(github.event.pull_request_target.labels.*.name, 'Action: major bump')
-      || contains(github.event.pull_request_target.labels.*.name, 'Action: beta bump')
+      github.event.pull_request.merged == true && (
+        contains(github.event.pull_request.labels.*.name, 'Action: patch bump')
+      || contains(github.event.pull_request.labels.*.name, 'Action: minor bump')
+      || contains(github.event.pull_request.labels.*.name, 'Action: major bump')
+      || contains(github.event.pull_request.labels.*.name, 'Action: beta bump')
       )
 
     steps:
@@ -82,7 +82,7 @@ jobs:
 
     - uses: actions/setup-node@v2
       with:
-        node-version: '12.x'
+        node-version: '14'
 
     - name: Install
       run: npm ci
@@ -102,7 +102,7 @@ jobs:
 
           const versionLabelsNames = Object.keys(versionLabels);
 
-          const labels = context.payload.pull_request_target.labels;
+          const labels = context.payload.pull_request.labels;
 
           const versionLabelsPresent = labels
             .filter(label => versionLabelsNames.includes(label.name))
@@ -160,41 +160,6 @@ jobs:
         NAME=$(cat package.json | jq -r '.name')
         echo "::set-output name=name::$NAME"
 
-    - name: Create deployment
-      id: deployment
-      uses: actions/github-script@v3
-      env:
-        REF: ${{ steps.push.outputs.ref }}
-        VERSION: ${{ steps.push.outputs.VERSION }}
-        NAME: ${{ steps.push.outputs.NAME }}
-        VERSION_BUMP: ${{ steps.extract-version-labels.outputs.versionBump }}
-      with:
-        github-token: ${{ secrets.TOKEN_REPO_WRITE }}
-        previews: 'ant-man-preview,flash-preview'
-        script: |
-          const ref = process.env.REF;
-          const name = process.env.NAME;
-          const version = process.env.VERSION;
-
-          const npmTag = process.env.VERSION_BUMP === 'beta' ? 'beta' : 'latest';
-
-          const { data: deployment } = await github.repos.createDeployment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            ref: `v${version}`,
-            environment: 'npm',
-            auto_merge: false,
-            required_contexts: [],
-            payload: {
-              version,
-              name,
-              ref,
-              npmTag,
-            },
-            description: `Deploy ${name}@${version} on npm`,
-            production_environment: true,
-          });
-
     - name: Extract release changelog
       id: extract-changelog
       if: steps.extract-version-label.outputs.versionBump != 'beta'
@@ -209,6 +174,29 @@ jobs:
 
         echo "::set-output name=version-part::$VERSION_PART"
 
+    - name: Create tarball
+      env:
+        VERSION_BUMP: ${{ steps.extract-version-label.outputs.versionBump }}
+        VERSION: ${{ steps.push.outputs.version }}
+      run: |
+        PACKAGE=$(npm pack)
+
+        mv $PACKAGE package.tgz
+
+        NPM_TAG=$([ $VERSION_BUMP == "beta" ] && echo 'beta' || echo 'latest')
+
+        echo $NPM_TAG > npm-tag
+        echo v$VERSION > ref
+
+    - name: Publish artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: package
+        path: |
+          ./package.tgz
+          ./npm-tag
+          ./ref
+
     - name: Create Release
       if: steps.extract-version-label.outputs.versionBump != 'beta'
       uses: actions/github-script@v2
@@ -216,7 +204,6 @@ jobs:
         VERSION: ${{ steps.push.outputs.version }}
         BODY: ${{ steps.extract-changelog.outputs.version-part }}
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           await github.repos.createRelease({
             owner: context.repo.owner,
