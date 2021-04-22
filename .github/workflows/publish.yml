@@ -113,6 +113,7 @@ jobs:
           console.log(`::set-output name=id::${deployment.id}`)
 
     - name: Update deployment status
+      if: steps.find-artifact.outputs.found == 'true'
       uses: actions/github-script@v3
       env:
         NAME: ${{ steps.compute-version.outputs.name }}
@@ -137,12 +138,14 @@ jobs:
           });
 
     - uses: actions/setup-node@v2
+      if: steps.find-artifact.outputs.found == 'true'
       with:
         registry-url: https://registry.npmjs.org/
         node-version: '14'
 
     - name: Publish npm
       id: publish
+      if: steps.find-artifact.outputs.found == 'true'
       env:
         NODE_AUTH_TOKEN: ${{ secrets.TOKEN_NPM }}
         NPM_TAG: ${{ steps.compute-version.outputs.npmTag }}
@@ -152,7 +155,7 @@ jobs:
         echo "::set-output name=state::done"
 
     - name: Update deployment status
-      if: always()
+      if: steps.find-artifact.outputs.found == 'true'
       uses: actions/github-script@v3
       env:
         NAME: ${{ steps.compute-version.outputs.name }}
