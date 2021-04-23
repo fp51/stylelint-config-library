@@ -34,7 +34,9 @@ jobs:
         gitUserEmail: ${{ secrets.BOT_EMAIL }}
 
     - name: 'Rebase the current pull request'
-      if: github.event_name == 'pull_request_target'
+      if: >
+        github.event_name == 'pull_request_target'
+        && contains(github.event.pull_request.labels.*.name, 'Action: keep-rebased')
       uses: fp51/actions/rebase-pull-requests@v2
       with:
         # we use another token here
