@@ -74,7 +74,8 @@ jobs:
                     id
                   }
                 }
-            }`;
+              }
+            `
 
             await github.graphql(query, {
               id: pullRequestId

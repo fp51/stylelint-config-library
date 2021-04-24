@@ -120,8 +120,6 @@ jobs:
 
         npm version --no-git-tag-version $NEW_VERSION
 
-        NAME=$(cat package.json | jq -r '.name')
-
     - name: Create tarball
       run: |
         PACKAGE=$(npm pack)
